@@ -59,7 +59,7 @@ public sealed class Function
 
             var payload = DeserializeRequest(request.Body);
             var service = scope.ServiceProvider.GetRequiredService<IAuthenticateCustomerService>();
-            var response = await service.ExecuteAsync(new AuthenticateCustomerCommand(payload.Cpf), context.CancellationToken);
+            var response = await service.ExecuteAsync(new AuthenticateCustomerCommand(payload.Cpf), CancellationToken.None);
 
             logger.LogInformation("Authentication token generated for customer {CustomerId}", response.CustomerId);
             return CreateResponse(HttpStatusCode.OK, response, correlationId);
@@ -204,6 +204,7 @@ public sealed class Function
             Headers = new Dictionary<string, string>
             {
                 ["Content-Type"] = "application/json",
+                ["Access-Control-Allow-Origin"] = "*",
                 ["X-Correlation-Id"] = correlationId
             }
         };

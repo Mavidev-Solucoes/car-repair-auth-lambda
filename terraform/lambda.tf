@@ -31,26 +31,26 @@ resource "aws_cloudwatch_log_group" "lambda" {
 }
 
 resource "aws_lambda_function" "auth" {
-  function_name = local.resource_prefix
-  description   = "Lambda responsible for CPF-based authentication for Car Repair Shop."
-  role          = aws_iam_role.lambda_execution.arn
-  runtime       = "dotnet8"
-  handler       = var.lambda_handler
-  filename      = var.lambda_package_path
+  function_name    = local.resource_prefix
+  description      = "Lambda responsible for CPF-based authentication for Car Repair Shop."
+  role             = aws_iam_role.lambda_execution.arn
+  runtime          = "dotnet8"
+  handler          = var.lambda_handler
+  filename         = var.lambda_package_path
   source_code_hash = filebase64sha256(var.lambda_package_path)
-  memory_size   = var.lambda_memory_size
-  timeout       = var.lambda_timeout
+  memory_size      = var.lambda_memory_size
+  timeout          = var.lambda_timeout
 
   environment {
     variables = {
-      ASPNETCORE_ENVIRONMENT                = var.environment
-      Jwt__Issuer                           = var.jwt_issuer
-      Jwt__Audience                         = var.jwt_audience
-      Jwt__ExpirationInMinutes              = tostring(var.jwt_expiration_in_minutes)
-      Jwt__SecretKey                        = var.jwt_secret_key
+      ASPNETCORE_ENVIRONMENT                   = var.environment
+      Jwt__Issuer                              = var.jwt_issuer
+      Jwt__Audience                            = var.jwt_audience
+      Jwt__ExpirationInMinutes                 = tostring(var.jwt_expiration_in_minutes)
+      Jwt__SecretKey                           = var.jwt_secret_key
       SecretsManager__ConnectionStringSecretId = aws_secretsmanager_secret.postgres_connection.name
-      Database__Schema                      = var.db_schema
-      Database__CustomersTableName          = var.customers_table_name
+      Database__Schema                         = var.db_schema
+      Database__CustomersTableName             = var.customers_table_name
     }
   }
 

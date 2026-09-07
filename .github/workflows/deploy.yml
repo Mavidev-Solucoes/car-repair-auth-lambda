@@ -35,20 +35,23 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/CarRepair.Auth.Lambda.sln
+        run: dotnet restore ${{ github.workspace }}/CarRepair.Auth.Lambda.sln
 
       - name: Build
-        run: dotnet build /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/CarRepair.Auth.Lambda.sln --configuration Release --no-restore
+        run: dotnet build ${{ github.workspace }}/CarRepair.Auth.Lambda.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ${{ github.workspace }}/CarRepair.Auth.Lambda.sln --configuration Release --no-build
 
       - name: Publish Lambda
-        run: dotnet publish /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/src/Lambda/CarRepair.Auth.Lambda.csproj --configuration Release --output /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/artifacts/publish
+        run: dotnet publish ${{ github.workspace }}/src/Lambda/CarRepair.Auth.Lambda.csproj --configuration Release --output ${{ github.workspace }}/artifacts/publish
 
       - name: Package Lambda
         run: |
-          cd /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/artifacts/publish
+          cd ${{ github.workspace }}/artifacts/publish
           zip -r ../lambda.zip .
-          mkdir -p /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/terraform/artifacts
-          cp /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/artifacts/lambda.zip /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/terraform/artifacts/lambda.zip
+          mkdir -p ${{ github.workspace }}/terraform/artifacts
+          cp ${{ github.workspace }}/artifacts/lambda.zip ${{ github.workspace }}/terraform/artifacts/lambda.zip
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -60,13 +63,13 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        working-directory: /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/terraform
+        working-directory: ${{ github.workspace }}/terraform
         run: terraform init
 
       - name: Terraform Validate
-        working-directory: /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/terraform
+        working-directory: ${{ github.workspace }}/terraform
         run: terraform validate
 
       - name: Terraform Apply
-        working-directory: /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/terraform
+        working-directory: ${{ github.workspace }}/terraform
         run: terraform apply -auto-approve -var="aws_region=${AWS_REGION}" -var="lambda_package_path=./artifacts/lambda.zip"
