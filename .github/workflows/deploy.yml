@@ -1,0 +1,75 @@
+name: Deploy Lambda
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      TF_VAR_environment: ${{ vars.ENVIRONMENT || 'dev' }}
+      TF_VAR_project_name: car-repair-auth-lambda
+      TF_VAR_postgres_connection_string: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+      TF_VAR_postgres_secret_name: ${{ vars.POSTGRES_SECRET_NAME || 'car-repair/auth/postgres' }}
+      TF_VAR_jwt_secret_key: ${{ secrets.JWT_SECRET_KEY }}
+      TF_VAR_jwt_issuer: ${{ vars.JWT_ISSUER || 'car-repair-auth' }}
+      TF_VAR_jwt_audience: ${{ vars.JWT_AUDIENCE || 'car-repair-shop' }}
+      TF_VAR_jwt_expiration_in_minutes: ${{ vars.JWT_EXPIRATION_IN_MINUTES || '60' }}
+      TF_VAR_db_schema: ${{ vars.DB_SCHEMA || 'public' }}
+      TF_VAR_customers_table_name: ${{ vars.CUSTOMERS_TABLE_NAME || 'customers' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore ${{ github.workspace }}/CarRepair.Auth.Lambda.sln
+
+      - name: Build
+        run: dotnet build ${{ github.workspace }}/CarRepair.Auth.Lambda.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ${{ github.workspace }}/CarRepair.Auth.Lambda.sln --configuration Release --no-build
+
+      - name: Publish Lambda
+        run: dotnet publish ${{ github.workspace }}/src/Lambda/CarRepair.Auth.Lambda.csproj --configuration Release --output ${{ github.workspace }}/artifacts/publish
+
+      - name: Package Lambda
+        run: |
+          cd ${{ github.workspace }}/artifacts/publish
+          zip -r ../lambda.zip .
+          mkdir -p ${{ github.workspace }}/terraform/artifacts
+          cp ${{ github.workspace }}/artifacts/lambda.zip ${{ github.workspace }}/terraform/artifacts/lambda.zip
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ${{ github.workspace }}/terraform
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ github.workspace }}/terraform
+        run: terraform validate
+
+      - name: Terraform Apply
+        working-directory: ${{ github.workspace }}/terraform
+        run: terraform apply -auto-approve -var="aws_region=${AWS_REGION}" -var="lambda_package_path=./artifacts/lambda.zip"

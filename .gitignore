@@ -1,0 +1,7 @@
+bin/
+obj/
+artifacts/
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/crash.log
