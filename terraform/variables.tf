@@ -40,22 +40,16 @@ variable "lambda_timeout" {
   default     = 15
 }
 
-variable "postgres_connection_string" {
-  description = "PostgreSQL connection string stored in AWS Secrets Manager."
-  type        = string
-  sensitive   = true
-}
-
-variable "postgres_secret_name" {
-  description = "Secrets Manager secret name that stores the PostgreSQL connection string."
+variable "postgres_secret_id" {
+  description = "Name or ARN of the existing Secrets Manager secret that stores the PostgreSQL connection string."
   type        = string
   default     = "car-repair/auth/postgres"
 }
 
-variable "jwt_secret_key" {
-  description = "JWT signing key exposed to Lambda as environment variable."
+variable "jwt_secret_name" {
+  description = "Secrets Manager secret name for the JWT signing key managed by this stack."
   type        = string
-  sensitive   = true
+  default     = "car-repair/auth/jwt"
 }
 
 variable "jwt_issuer" {
@@ -86,6 +80,12 @@ variable "customers_table_name" {
   description = "Customers table name in PostgreSQL."
   type        = string
   default     = "customers"
+}
+
+variable "enable_api_gateway" {
+  description = "Whether API Gateway resources should be created (disable when ingress is handled by Kong in production)."
+  type        = bool
+  default     = true
 }
 
 variable "tags" {

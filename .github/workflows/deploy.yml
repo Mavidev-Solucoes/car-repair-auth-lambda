@@ -17,14 +17,14 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       TF_VAR_environment: ${{ vars.ENVIRONMENT || 'dev' }}
       TF_VAR_project_name: car-repair-auth-lambda
-      TF_VAR_postgres_connection_string: ${{ secrets.POSTGRES_CONNECTION_STRING }}
-      TF_VAR_postgres_secret_name: ${{ vars.POSTGRES_SECRET_NAME || 'car-repair/auth/postgres' }}
-      TF_VAR_jwt_secret_key: ${{ secrets.JWT_SECRET_KEY }}
+      TF_VAR_postgres_secret_id: ${{ vars.POSTGRES_SECRET_ID || 'car-repair/auth/postgres' }}
+      TF_VAR_jwt_secret_name: ${{ vars.JWT_SECRET_NAME || 'car-repair/auth/jwt' }}
       TF_VAR_jwt_issuer: ${{ vars.JWT_ISSUER || 'car-repair-auth' }}
       TF_VAR_jwt_audience: ${{ vars.JWT_AUDIENCE || 'car-repair-shop' }}
       TF_VAR_jwt_expiration_in_minutes: ${{ vars.JWT_EXPIRATION_IN_MINUTES || '60' }}
       TF_VAR_db_schema: ${{ vars.DB_SCHEMA || 'public' }}
       TF_VAR_customers_table_name: ${{ vars.CUSTOMERS_TABLE_NAME || 'customers' }}
+      TF_VAR_enable_api_gateway: ${{ vars.ENABLE_API_GATEWAY || 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

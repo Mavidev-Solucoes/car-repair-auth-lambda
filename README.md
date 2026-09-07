@@ -8,15 +8,15 @@ Esse projeto implementa uma AWS Lambda em .NET 8 para autenticação via CPF do 
 - `src/Application`: caso de uso de autenticação, contratos e regras de validação
 - `src/Infrastructure`: Entity Framework Core, PostgreSQL, JWT e integração com AWS Secrets Manager
 - `src/Lambda`: handler da AWS Lambda, logging estruturado e correlation ID
-- `terraform`: infraestrutura completa da Lambda, API Gateway, IAM, CloudWatch Logs e Secrets Manager
+- `terraform`: infraestrutura da Lambda, IAM, CloudWatch Logs, secret JWT dedicado e API Gateway opcional
 
 ## Fluxo
 
-1. Recebe o CPF em `POST /auth/token`
-2. Valida o CPF com FluentValidation e algoritmo oficial
-3. Busca o cliente no PostgreSQL
-4. Confirma que o cliente existe e está ativo
-5. Gera o JWT
+1. CPF → Lambda
+2. Lambda valida CPF e cliente no PostgreSQL
+3. Lambda gera JWT
+4. JWT → Kong Gateway (camada de autenticação em produção)
+5. Kong → APIs de negócio
 6. Retorna o token com `CorrelationId` no header `X-Correlation-Id`
 
 ## Payload de entrada
@@ -43,8 +43,8 @@ Esse projeto implementa uma AWS Lambda em .NET 8 para autenticação via CPF do 
 
 A Lambda espera as seguintes configurações:
 
-- `SecretsManager__ConnectionStringSecretId`: nome ou ARN do secret com a connection string do PostgreSQL
-- `Jwt__SecretKey`: chave de assinatura do JWT
+- `SecretsManager__ConnectionStringSecretId`: nome ou ARN do secret com a connection string do PostgreSQL (provisionado por `car-repair-db-infra`)
+- `SecretsManager__JwtSecretId`: nome ou ARN do secret com a chave de assinatura JWT (provisionado por este repositório)
 - `Jwt__Issuer`: issuer do token
 - `Jwt__Audience`: audience do token
 - `Jwt__ExpirationInMinutes`: expiração em minutos
@@ -83,10 +83,15 @@ dotnet build /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/Car
 O workflow `.github/workflows/deploy.yml` publica a Lambda e executa o Terraform. Configure os secrets e variables do GitHub abaixo antes de usar:
 
 - `AWS_ROLE_TO_ASSUME`
-- `POSTGRES_CONNECTION_STRING`
-- `JWT_SECRET_KEY`
 - `AWS_REGION` (variable)
 - `ENVIRONMENT` (variable)
-- `POSTGRES_SECRET_NAME` (variable, opcional)
+- `POSTGRES_SECRET_ID` (variable, opcional)
+- `JWT_SECRET_NAME` (variable, opcional)
 - `DB_SCHEMA` (variable, opcional)
 - `CUSTOMERS_TABLE_NAME` (variable, opcional)
+- `ENABLE_API_GATEWAY` (variable, opcional, default `true`)
+
+## API Gateway e Kong
+
+- Em produção, a autenticação deve ser exposta via Kong Gateway.
+- O API Gateway do Terraform é opcional (`enable_api_gateway`) para manter compatibilidade com ambientes sem Kong.

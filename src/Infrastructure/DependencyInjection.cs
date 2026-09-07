@@ -21,6 +21,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IAmazonSecretsManager, AmazonSecretsManagerClient>();
         services.AddSingleton<IConnectionStringProvider, SecretsManagerConnectionStringProvider>();
+        services.AddSingleton<IJwtSecretProvider, SecretsManagerJwtSecretProvider>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
 
