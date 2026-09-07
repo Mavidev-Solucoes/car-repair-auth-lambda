@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
@@ -12,11 +11,9 @@ using CarRepair.Auth.Infrastructure;
 using CarRepair.Auth.Infrastructure.Configuration;
 using CarRepair.Auth.Lambda.Models;
 using FluentValidation;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
@@ -135,26 +132,6 @@ public sealed class Function
         services.AddScoped<IAuthenticateCustomerService, AuthenticateCustomerService>();
         services.AddScoped<IValidator<AuthenticateCustomerCommand>, AuthenticateCustomerCommandValidator>();
         services.AddInfrastructure(configuration);
-
-        var secretKey = configuration["Jwt:SecretKey"];
-        if (!string.IsNullOrWhiteSpace(secretKey))
-        {
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
-                {
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                        ValidateIssuer = true,
-                        ValidIssuer = configuration["Jwt:Issuer"] ?? "car-repair-auth",
-                        ValidateAudience = true,
-                        ValidAudience = configuration["Jwt:Audience"] ?? "car-repair-shop",
-                        ValidateLifetime = true,
-                        ClockSkew = TimeSpan.Zero
-                    };
-                });
-        }
 
         return services.BuildServiceProvider();
     }

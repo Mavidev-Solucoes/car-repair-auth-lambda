@@ -27,13 +27,8 @@ resource "aws_iam_role" "lambda_execution" {
   tags = local.common_tags
 }
 
-resource "aws_iam_role_policy_attachment" "basic_execution" {
-  role       = aws_iam_role.lambda_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_role_policy" "secrets_access" {
-  name = "${local.resource_prefix}-secrets-policy"
+resource "aws_iam_role_policy" "lambda_runtime" {
+  name = "${local.resource_prefix}-runtime-policy"
   role = aws_iam_role.lambda_execution.id
 
   policy = jsonencode({
@@ -42,10 +37,24 @@ resource "aws_iam_role_policy" "secrets_access" {
       {
         Effect = "Allow"
         Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          aws_cloudwatch_log_group.lambda.arn,
+          "${aws_cloudwatch_log_group.lambda.arn}:*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = aws_secretsmanager_secret.postgres_connection.arn
+        Resource = [
+          local.postgres_secret_arn,
+          aws_secretsmanager_secret.jwt_signing_key.arn
+        ]
       }
     ]
   })
