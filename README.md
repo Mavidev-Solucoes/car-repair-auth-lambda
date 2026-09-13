@@ -1,97 +1,203 @@
 # car-repair-auth-lambda
 
-Esse projeto implementa uma AWS Lambda em .NET 8 para autenticação via CPF do sistema Car Repair Shop.
+AWS Lambda em .NET 8 para autenticacao por CPF do sistema Car Repair.
 
-## Arquitetura
+Este repositorio gerencia somente a Lambda de autenticacao, sua IAM role, CloudWatch Logs, o secret JWT e API Gateway opcional. A VPC/EKS vem do `car-repair-k8s-infra` e o RDS/secret do banco/security group client vem do `car-repair-db-infra`.
 
-- `src/Domain`: entidades e validação de CPF
-- `src/Application`: caso de uso de autenticação, contratos e regras de validação
-- `src/Infrastructure`: Entity Framework Core, PostgreSQL, JWT e integração com AWS Secrets Manager
-- `src/Lambda`: handler da AWS Lambda, logging estruturado e correlation ID
-- `terraform`: infraestrutura da Lambda, IAM, CloudWatch Logs, secret JWT dedicado e API Gateway opcional
+## Escopo
 
-## Fluxo
+Esta stack cria:
 
-1. CPF → Lambda
-2. Lambda valida CPF e cliente no PostgreSQL
-3. Lambda gera JWT
-4. JWT → Kong Gateway (camada de autenticação em produção)
-5. Kong → APIs de negócio
-6. Retorna o token com `CorrelationId` no header `X-Correlation-Id`
+- AWS Lambda .NET 8
+- IAM role de execucao da Lambda
+- permissoes de CloudWatch Logs
+- permissoes de Secrets Manager somente para os secrets configurados
+- permissao gerenciada `AWSLambdaVPCAccessExecutionRole` para ENIs em VPC
+- secret JWT em Secrets Manager
+- API Gateway opcional
 
-## Payload de entrada
+Esta stack nao cria:
 
-```json
-{
-  "cpf": "12345678909"
+- VPC
+- EKS
+- RDS
+- Security Group novo para banco
+- RDS Proxy
+- Kong
+- New Relic
+
+## Fluxo de autenticacao
+
+```text
+CPF
+ |
+ v
+Lambda em private subnet
+ |
+ | database_client_security_group
+ v
+RDS PostgreSQL privado
+```
+
+Secrets consumidos:
+
+```text
+Lambda
+ |
+ v
+Secrets Manager
+ |-- car-repair/<environment>/database
+ `-- car-repair/<environment>/jwt
+```
+
+## Integracao com os repositorios de infra
+
+Do `car-repair-k8s-infra`:
+
+- `private_subnets` -> `private_subnet_ids`
+
+Do `car-repair-db-infra`:
+
+- `database_client_security_group_id` -> `database_client_security_group_id`
+- `database_secret_arn` -> `database_secret_arn`
+- `database_secret_name` -> `database_secret_name`
+
+A Lambda usa apenas subnets privadas:
+
+```hcl
+vpc_config {
+  subnet_ids         = var.private_subnet_ids
+  security_group_ids = [var.database_client_security_group_id]
 }
 ```
 
-## Resposta de sucesso
+O Security Group reutilizado ja e autorizado pelo RDS para PostgreSQL `5432/tcp`.
 
-```json
-{
-  "accessToken": "jwt",
-  "expiresAtUtc": "2026-01-01T00:00:00Z",
-  "customerId": "00000000-0000-0000-0000-000000000000",
-  "customerName": "Maria Souza",
-  "tokenType": "Bearer"
-}
+## Secrets Manager
+
+### Database
+
+O secret do banco pertence ao `car-repair-db-infra` e deve seguir:
+
+```text
+car-repair/<environment>/database
 ```
 
-## Configuração
+Exemplos:
 
-A Lambda espera as seguintes configurações:
+- `car-repair/dev/database`
+- `car-repair/prod/database`
 
-- `SecretsManager__ConnectionStringSecretId`: nome ou ARN do secret com a connection string do PostgreSQL (provisionado por `car-repair-db-infra`)
-- `SecretsManager__JwtSecretId`: nome ou ARN do secret com a chave de assinatura JWT (provisionado por este repositório)
-- `Jwt__Issuer`: issuer do token
-- `Jwt__Audience`: audience do token
-- `Jwt__ExpirationInMinutes`: expiração em minutos
-- `Database__Schema`: schema do PostgreSQL
-- `Database__CustomersTableName`: tabela de clientes
+Este repositorio nao cria o secret do banco. A IAM policy da Lambda permite leitura somente do secret informado por `database_secret_arn` ou, se o ARN nao for informado, do secret resolvido por `database_secret_name`.
 
-O secret do banco pode ser armazenado em um dos formatos abaixo:
+### JWT
 
-```json
-{
-  "connectionString": "Host=...;Port=5432;Database=...;Username=...;******"
-}
+Este repositorio cria e gerencia o secret JWT:
+
+```text
+car-repair/<environment>/jwt
 ```
 
-ou
+Exemplos:
 
-```json
-{
-  "host": "db.example.com",
-  "port": 5432,
-  "database": "car_repair",
-  "username": "app",
-  "password": "secret"
-}
-```
+- `car-repair/dev/jwt`
+- `car-repair/prod/jwt`
+
+A chave JWT e gerada automaticamente e armazenada no Secrets Manager. Ela nao deve ser colocada em:
+
+- `terraform.tfvars`
+- environment variables
+- outputs
+- codigo
+- GitHub variables
+
+## Acesso ao Secrets Manager em private subnet
+
+A Lambda fica em private subnets. Para buscar os secrets e conectar ao RDS privado, ela depende de:
+
+- rota das private subnets para NAT Gateway existente no `car-repair-k8s-infra`, para chamadas ao Secrets Manager
+- rota interna da VPC para o RDS
+- `database_client_security_group_id` autorizado no Security Group do RDS
+
+Nao foi criado VPC Endpoint para Secrets Manager nesta etapa. Se NAT Gateway for removido ou bloqueado, a alternativa operacional e criar um Interface VPC Endpoint para `secretsmanager`.
+
+## Timeout e conexoes
+
+O timeout padrao da Lambda e `20` segundos. Esse valor considera cold start, criacao de ENI, chamada ao Secrets Manager e conexao PostgreSQL sem exagerar o tempo maximo de execucao.
+
+No codigo:
+
+- o secret de banco e cacheado em memoria por container Lambda
+- o Npgsql usa pooling
+- o EF Core usa `AddDbContextPool`
+- nao ha RDS Proxy nesta etapa
+
+## Variaveis Terraform principais
+
+- `private_subnet_ids`
+- `database_client_security_group_id`
+- `database_secret_arn`
+- `database_secret_name`
+- `jwt_secret_name`
+- `lambda_timeout`
+- `enable_api_gateway`
+
+Exemplos:
+
+- `terraform/environments/dev.tfvars.example`
+- `terraform/environments/prod.tfvars.example`
 
 ## Build local
 
 ```bash
-dotnet restore /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/CarRepair.Auth.Lambda.sln
-dotnet build /home/runner/work/car-repair-auth-lambda/car-repair-auth-lambda/CarRepair.Auth.Lambda.sln
+dotnet restore CarRepair.Auth.Lambda.sln
+dotnet build CarRepair.Auth.Lambda.sln
+dotnet test CarRepair.Auth.Lambda.sln
 ```
+
+## Terraform
+
+Validacao:
+
+```bash
+terraform -chdir=terraform init
+terraform -chdir=terraform validate
+```
+
+Plano com exemplo dev:
+
+```bash
+terraform -chdir=terraform plan -var-file=environments/dev.tfvars
+```
+
+## Outputs
+
+- `lambda_function_name`
+- `lambda_function_arn`
+- `jwt_secret_arn`
+- `jwt_secret_name`
+- `api_gateway_invoke_url`, quando `enable_api_gateway = true`
+
+Nenhum output expoe valor do secret JWT ou credenciais do banco.
 
 ## Deploy
 
-O workflow `.github/workflows/deploy.yml` publica a Lambda e executa o Terraform. Configure os secrets e variables do GitHub abaixo antes de usar:
+O workflow `.github/workflows/deploy.yml` publica a Lambda e executa Terraform. Configure as variables abaixo:
+
+- `AWS_REGION`
+- `ENVIRONMENT`
+- `PRIVATE_SUBNET_IDS_JSON`, exemplo: `["subnet-aaa","subnet-bbb"]`
+- `DATABASE_CLIENT_SECURITY_GROUP_ID`
+- `DATABASE_SECRET_ARN`
+- `DATABASE_SECRET_NAME`
+- `JWT_SECRET_NAME`
+- `JWT_ISSUER`
+- `JWT_AUDIENCE`
+- `JWT_EXPIRATION_IN_MINUTES`
+- `DB_SCHEMA`
+- `CUSTOMERS_TABLE_NAME`
+- `ENABLE_API_GATEWAY`
+
+Configure o secret GitHub:
 
 - `AWS_ROLE_TO_ASSUME`
-- `AWS_REGION` (variable)
-- `ENVIRONMENT` (variable)
-- `POSTGRES_SECRET_ID` (variable, opcional)
-- `JWT_SECRET_NAME` (variable, opcional)
-- `DB_SCHEMA` (variable, opcional)
-- `CUSTOMERS_TABLE_NAME` (variable, opcional)
-- `ENABLE_API_GATEWAY` (variable, opcional, default `true`)
-
-## API Gateway e Kong
-
-- Em produção, a autenticação deve ser exposta via Kong Gateway.
-- O API Gateway do Terraform é opcional (`enable_api_gateway`) para manter compatibilidade com ambientes sem Kong.

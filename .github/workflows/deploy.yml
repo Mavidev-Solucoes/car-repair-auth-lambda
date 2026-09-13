@@ -17,8 +17,11 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       TF_VAR_environment: ${{ vars.ENVIRONMENT || 'dev' }}
       TF_VAR_project_name: car-repair-auth-lambda
-      TF_VAR_postgres_secret_id: ${{ vars.POSTGRES_SECRET_ID || 'car-repair/auth/postgres' }}
-      TF_VAR_jwt_secret_name: ${{ vars.JWT_SECRET_NAME || 'car-repair/auth/jwt' }}
+      TF_VAR_private_subnet_ids: ${{ vars.PRIVATE_SUBNET_IDS_JSON }}
+      TF_VAR_database_client_security_group_id: ${{ vars.DATABASE_CLIENT_SECURITY_GROUP_ID }}
+      TF_VAR_database_secret_arn: ${{ vars.DATABASE_SECRET_ARN }}
+      TF_VAR_database_secret_name: ${{ vars.DATABASE_SECRET_NAME }}
+      TF_VAR_jwt_secret_name: ${{ vars.JWT_SECRET_NAME }}
       TF_VAR_jwt_issuer: ${{ vars.JWT_ISSUER || 'car-repair-auth' }}
       TF_VAR_jwt_audience: ${{ vars.JWT_AUDIENCE || 'car-repair-shop' }}
       TF_VAR_jwt_expiration_in_minutes: ${{ vars.JWT_EXPIRATION_IN_MINUTES || '60' }}

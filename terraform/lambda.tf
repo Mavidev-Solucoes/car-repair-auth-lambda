@@ -17,8 +17,13 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_secretsmanager_secret" "database" {
+  count = trimspace(var.database_secret_arn) == "" ? 1 : 0
+  name  = trimspace(var.database_secret_name) != "" ? var.database_secret_name : "car-repair/${var.environment}/database"
+}
+
 resource "aws_secretsmanager_secret" "jwt_signing_key" {
-  name                    = var.jwt_secret_name
+  name                    = local.jwt_secret_name
   recovery_window_in_days = 0
   tags                    = local.common_tags
 }
@@ -31,15 +36,6 @@ resource "random_password" "jwt_signing_key" {
 resource "aws_secretsmanager_secret_version" "jwt_signing_key" {
   secret_id     = aws_secretsmanager_secret.jwt_signing_key.id
   secret_string = jsonencode({ secretKey = random_password.jwt_signing_key.result })
-}
-
-data "aws_secretsmanager_secret" "postgres_external" {
-  count = startswith(var.postgres_secret_id, "arn:") ? 0 : 1
-  name  = var.postgres_secret_id
-}
-
-locals {
-  postgres_secret_arn = startswith(var.postgres_secret_id, "arn:") ? var.postgres_secret_id : data.aws_secretsmanager_secret.postgres_external[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -59,14 +55,19 @@ resource "aws_lambda_function" "auth" {
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
 
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.database_client_security_group_id]
+  }
+
   environment {
     variables = {
       ASPNETCORE_ENVIRONMENT                   = var.environment
       Jwt__Issuer                              = var.jwt_issuer
       Jwt__Audience                            = var.jwt_audience
       Jwt__ExpirationInMinutes                 = tostring(var.jwt_expiration_in_minutes)
-      SecretsManager__ConnectionStringSecretId = var.postgres_secret_id
-      SecretsManager__JwtSecretId              = aws_secretsmanager_secret.jwt_signing_key.name
+      SecretsManager__ConnectionStringSecretId = local.database_secret_runtime_id
+      SecretsManager__JwtSecretId              = local.jwt_secret_name
       Database__Schema                         = var.db_schema
       Database__CustomersTableName             = var.customers_table_name
     }
@@ -75,6 +76,7 @@ resource "aws_lambda_function" "auth" {
   depends_on = [
     aws_cloudwatch_log_group.lambda,
     aws_iam_role_policy.lambda_runtime,
+    aws_iam_role_policy_attachment.lambda_vpc_access,
     aws_secretsmanager_secret_version.jwt_signing_key
   ]
 

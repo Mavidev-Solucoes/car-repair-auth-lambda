@@ -14,6 +14,11 @@ variable "environment" {
   description = "Deployment environment name."
   type        = string
   default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "Environment must be dev or prod."
+  }
 }
 
 variable "lambda_package_path" {
@@ -37,19 +42,35 @@ variable "lambda_memory_size" {
 variable "lambda_timeout" {
   description = "Lambda timeout in seconds."
   type        = number
-  default     = 15
+  default     = 20
 }
 
-variable "postgres_secret_id" {
-  description = "Name or ARN of the existing Secrets Manager secret that stores the PostgreSQL connection string."
+variable "private_subnet_ids" {
+  description = "Private subnet IDs where the Lambda ENIs will be created. Use private_subnets from car-repair-k8s-infra."
+  type        = list(string)
+}
+
+variable "database_client_security_group_id" {
+  description = "Reusable database client security group ID from car-repair-db-infra."
   type        = string
-  default     = "car-repair/auth/postgres"
+}
+
+variable "database_secret_arn" {
+  description = "ARN of the existing database secret from car-repair-db-infra. Preferred for IAM least privilege."
+  type        = string
+  default     = ""
+}
+
+variable "database_secret_name" {
+  description = "Name of the existing database secret from car-repair-db-infra. Used by runtime when provided."
+  type        = string
+  default     = ""
 }
 
 variable "jwt_secret_name" {
-  description = "Secrets Manager secret name for the JWT signing key managed by this stack."
+  description = "Secrets Manager secret name for the JWT signing key managed by this stack. Defaults to car-repair/<environment>/jwt."
   type        = string
-  default     = "car-repair/auth/jwt"
+  default     = ""
 }
 
 variable "jwt_issuer" {

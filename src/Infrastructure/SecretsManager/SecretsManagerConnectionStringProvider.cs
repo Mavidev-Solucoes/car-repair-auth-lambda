@@ -92,6 +92,10 @@ public sealed class SecretsManagerConnectionStringProvider : IConnectionStringPr
             Username = ReadString(root, "username", "Username"),
             Password = ReadString(root, "password", "Password"),
             Pooling = true,
+            MinPoolSize = 0,
+            MaxPoolSize = 20,
+            Timeout = 5,
+            CommandTimeout = 10,
             IncludeErrorDetail = false
         };
 

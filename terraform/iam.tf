@@ -1,5 +1,10 @@
 locals {
-  resource_prefix = "${var.project_name}-${var.environment}"
+  resource_prefix     = "${var.project_name}-${var.environment}"
+  database_secret_arn = trimspace(var.database_secret_arn) != "" ? var.database_secret_arn : data.aws_secretsmanager_secret.database[0].arn
+  database_secret_runtime_id = trimspace(var.database_secret_name) != "" ? var.database_secret_name : (
+    trimspace(var.database_secret_arn) != "" ? var.database_secret_arn : "car-repair/${var.environment}/database"
+  )
+  jwt_secret_name = trimspace(var.jwt_secret_name) != "" ? var.jwt_secret_name : "car-repair/${var.environment}/jwt"
 
   common_tags = merge({
     Project     = var.project_name
@@ -27,6 +32,11 @@ resource "aws_iam_role" "lambda_execution" {
   tags = local.common_tags
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role_policy" "lambda_runtime" {
   name = "${local.resource_prefix}-runtime-policy"
   role = aws_iam_role.lambda_execution.id
@@ -52,7 +62,7 @@ resource "aws_iam_role_policy" "lambda_runtime" {
           "secretsmanager:DescribeSecret"
         ]
         Resource = [
-          local.postgres_secret_arn,
+          local.database_secret_arn,
           aws_secretsmanager_secret.jwt_signing_key.arn
         ]
       }

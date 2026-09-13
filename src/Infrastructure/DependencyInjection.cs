@@ -25,7 +25,7 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
 
-        services.AddDbContext<AuthDbContext>((serviceProvider, optionsBuilder) =>
+        services.AddDbContextPool<AuthDbContext>((serviceProvider, optionsBuilder) =>
         {
             var connectionStringProvider = serviceProvider.GetRequiredService<IConnectionStringProvider>();
             var connectionString = connectionStringProvider.GetConnectionStringAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -33,6 +33,7 @@ public static class DependencyInjection
             optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
             {
                 npgsqlOptions.EnableRetryOnFailure(3);
+                npgsqlOptions.CommandTimeout(10);
             });
         });
 
