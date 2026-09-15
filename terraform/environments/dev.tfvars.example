@@ -1,0 +1,23 @@
+environment  = "dev"
+aws_region   = "us-east-1"
+project_name = "car-repair-auth-lambda"
+
+private_subnet_ids = [
+  "<car-repair-k8s-infra dev output private_subnets[0]>",
+  "<car-repair-k8s-infra dev output private_subnets[1]>"
+]
+
+database_client_security_group_id = "<car-repair-db-infra dev output database_client_security_group_id>"
+database_secret_arn               = "<car-repair-db-infra dev output database_secret_arn>"
+database_secret_name              = "car-repair/dev/database"
+
+jwt_secret_name = "car-repair/dev/jwt"
+
+jwt_issuer                = "car-repair-auth"
+jwt_audience              = "car-repair-shop"
+jwt_expiration_in_minutes = 60
+
+db_schema            = "public"
+customers_table_name = "customers"
+
+enable_api_gateway = true
