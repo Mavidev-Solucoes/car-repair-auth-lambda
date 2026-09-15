@@ -6,5 +6,5 @@ public sealed class DatabaseOptions
 
     public string Schema { get; set; } = "public";
 
-    public string CustomersTableName { get; set; } = "customers";
+    public string CustomersTableName { get; set; } = "Users";
 }
