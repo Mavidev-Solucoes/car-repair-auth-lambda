@@ -4,6 +4,10 @@ AWS Lambda em .NET 8 para autenticacao por CPF do sistema Car Repair.
 
 Este repositorio gerencia somente a Lambda de autenticacao, sua IAM role, CloudWatch Logs, o secret JWT e API Gateway opcional. A VPC/EKS vem do `car-repair-k8s-infra` e o RDS/secret do banco/security group client vem do `car-repair-db-infra`.
 
+## Proposito
+
+Esta Lambda e o componente de autenticacao do sistema Car Repair. Ela recebe um CPF, valida o formato, consulta o PostgreSQL para localizar um cliente ativo e, quando o cliente e encontrado, emite um JWT assinado para consumo pelos demais componentes da solucao.
+
 ## Escopo
 
 Esta stack cria:
@@ -29,15 +33,30 @@ Esta stack nao cria:
 ## Fluxo de autenticacao
 
 ```text
-CPF
- |
- v
-Lambda em private subnet
- |
- | database_client_security_group
- v
-RDS PostgreSQL privado
+Cliente
+  |
+  | envia CPF
+  v
+AWS Lambda de Autenticacao
+  |
+  | valida CPF
+  | consulta PostgreSQL
+  | le secrets no AWS Secrets Manager
+  | gera JWT
+  v
+Resposta com token JWT
 ```
+
+1. O cliente envia uma requisicao contendo o campo `cpf`.
+2. A Lambda normaliza e valida o CPF informado.
+3. A Lambda consulta o PostgreSQL para buscar um cliente com esse CPF.
+4. Se o cliente nao for encontrado, a Lambda retorna erro de negocio.
+5. Se o cliente estiver inativo, a Lambda retorna erro de negocio.
+6. Se o cliente estiver ativo, a Lambda obtem no AWS Secrets Manager:
+   - o secret de conexao com o banco
+   - o secret com a chave de assinatura do JWT
+7. A Lambda gera um token JWT com os dados do cliente autenticado.
+8. A Lambda retorna a resposta com o `accessToken`, data de expiracao, identificador e nome do cliente.
 
 Secrets consumidos:
 
@@ -145,7 +164,19 @@ No codigo:
 Exemplos:
 
 - `terraform/environments/dev.tfvars.example`
+- `terraform/environments/hml.tfvars.example`
 - `terraform/environments/prod.tfvars.example`
+
+## Tecnologias
+
+- AWS Lambda
+- .NET 8 / C#
+- PostgreSQL
+- Entity Framework Core
+- Npgsql
+- AWS Secrets Manager
+- Terraform
+- GitHub Actions
 
 ## Build local
 
@@ -182,10 +213,9 @@ Nenhum output expoe valor do secret JWT ou credenciais do banco.
 
 ## Deploy
 
-O workflow `.github/workflows/deploy.yml` publica a Lambda e executa Terraform. Configure as variables abaixo:
+O workflow `.github/workflows/cd.yml` publica a Lambda e executa Terraform para os ambientes `hml` e `prod`. Configure as variables abaixo:
 
 - `AWS_REGION`
-- `ENVIRONMENT`
 - `PRIVATE_SUBNET_IDS_JSON`, exemplo: `["subnet-aaa","subnet-bbb"]`
 - `DATABASE_CLIENT_SECURITY_GROUP_ID`
 - `DATABASE_SECRET_ARN`
@@ -201,3 +231,12 @@ O workflow `.github/workflows/deploy.yml` publica a Lambda e executa Terraform. 
 Configure o secret GitHub:
 
 - `AWS_ROLE_TO_ASSUME`
+
+## Relacionamento com os demais repositorios
+
+| Repositorio | Responsabilidade |
+|------------|------------------|
+| car-repair-app | API principal |
+| car-repair-auth-lambda | Emissao de JWT |
+| car-repair-db-infra | Banco PostgreSQL |
+| car-repair-k8s-infra | Plataforma Kubernetes |
