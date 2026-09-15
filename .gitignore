@@ -5,3 +5,16 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/crash.log
+.DS_Store
+*.tfplan
+tfplan
+.terraform/
+*.tfstate
+*.tfstate.*
+/.academy-auth.env
+/academy-session-check.txt
+/auth-db-inspection.txt
+/lambda-response.json
+/lambda-terraform.txt
+/lambda-update-result.txt
+/environments/academy-dev/terraform.tfvars

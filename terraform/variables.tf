@@ -46,7 +46,7 @@ variable "lambda_timeout" {
 }
 
 variable "private_subnet_ids" {
-  description = "Private subnet IDs where the Lambda ENIs will be created. Use private_subnets from car-repair-k8s-infra."
+  description = "Private subnet IDs where the Lambda ENIs will be created."
   type        = list(string)
 }
 
@@ -56,19 +56,19 @@ variable "database_client_security_group_id" {
 }
 
 variable "database_secret_arn" {
-  description = "ARN of the existing database secret from car-repair-db-infra. Preferred for IAM least privilege."
+  description = "ARN of the existing database secret from car-repair-db-infra."
   type        = string
   default     = ""
 }
 
 variable "database_secret_name" {
-  description = "Name of the existing database secret from car-repair-db-infra. Used by runtime when provided."
+  description = "Name of the existing database secret from car-repair-db-infra."
   type        = string
   default     = ""
 }
 
 variable "jwt_secret_name" {
-  description = "Secrets Manager secret name for the JWT signing key managed by this stack. Defaults to car-repair/<environment>/jwt."
+  description = "Secrets Manager secret name for the JWT signing key managed by this stack."
   type        = string
   default     = ""
 }
@@ -104,9 +104,21 @@ variable "customers_table_name" {
 }
 
 variable "enable_api_gateway" {
-  description = "Whether API Gateway resources should be created (disable when ingress is handled by Kong in production)."
+  description = "Whether AWS API Gateway resources should be created."
   type        = bool
   default     = true
+}
+
+variable "create_execution_role" {
+  description = "Whether Terraform should create the Lambda execution IAM role."
+  type        = bool
+  default     = true
+}
+
+variable "execution_role_arn" {
+  description = "Existing Lambda execution role ARN. Required when create_execution_role is false."
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

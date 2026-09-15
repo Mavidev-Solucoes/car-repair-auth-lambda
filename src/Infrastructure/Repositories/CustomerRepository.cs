@@ -14,10 +14,16 @@ public sealed class CustomerRepository : ICustomerRepository
         _dbContext = dbContext;
     }
 
-    public Task<Customer?> GetByCpfAsync(string normalizedCpf, CancellationToken cancellationToken = default)
+    public Task<Customer?> GetByCpfAsync(
+        string normalizedCpf,
+        CancellationToken cancellationToken = default)
     {
         return _dbContext.Customers
             .AsNoTracking()
-            .SingleOrDefaultAsync(customer => customer.Cpf == normalizedCpf, cancellationToken);
+            .SingleOrDefaultAsync(
+                customer =>
+                    customer.Cpf == normalizedCpf &&
+                    EF.Property<string>(customer, "UserKind") == "Customer",
+                cancellationToken);
     }
 }
