@@ -37,11 +37,18 @@ Cliente
   |
   | envia CPF
   v
+Kong -> car-repair-app: POST /api/auth/login
+  |
+  v
+API Gateway: POST /auth/token
+  |
+  v
 AWS Lambda de Autenticacao
   |
   | valida CPF
-  | consulta PostgreSQL
-  | le secrets no AWS Secrets Manager
+  | le secret de conexao no AWS Secrets Manager
+  | consulta PostgreSQL por CPF
+  | le secret JWT no AWS Secrets Manager
   | gera JWT
   v
 Resposta com token JWT
@@ -49,14 +56,13 @@ Resposta com token JWT
 
 1. O cliente envia uma requisicao contendo o campo `cpf`.
 2. A Lambda normaliza e valida o CPF informado.
-3. A Lambda consulta o PostgreSQL para buscar um cliente com esse CPF.
-4. Se o cliente nao for encontrado, a Lambda retorna erro de negocio.
-5. Se o cliente estiver inativo, a Lambda retorna erro de negocio.
-6. Se o cliente estiver ativo, a Lambda obtem no AWS Secrets Manager:
-   - o secret de conexao com o banco
-   - o secret com a chave de assinatura do JWT
-7. A Lambda gera um token JWT com os dados do cliente autenticado.
-8. A Lambda retorna a resposta com o `accessToken`, data de expiracao, identificador e nome do cliente.
+3. A Lambda obtem no AWS Secrets Manager o secret de conexao com o banco.
+4. A Lambda consulta o PostgreSQL para buscar um cliente com esse CPF.
+5. Se o cliente nao for encontrado, a Lambda retorna erro de negocio.
+6. Se o cliente estiver inativo, a Lambda retorna erro de negocio.
+7. Se o cliente estiver ativo, a Lambda obtem no AWS Secrets Manager o secret com a chave de assinatura do JWT.
+8. A Lambda gera um token JWT com os dados do cliente autenticado.
+9. A Lambda retorna a resposta com o `accessToken`, data de expiracao, identificador e nome do cliente.
 
 Secrets consumidos:
 
@@ -68,6 +74,16 @@ Secrets Manager
  |-- car-repair/<environment>/database
  `-- car-repair/<environment>/jwt
 ```
+
+### Endpoint HTTP
+
+A Lambda e invocada via HTTP pelo endpoint `POST /auth/token` quando `enable_api_gateway = true`.
+A API principal (`car-repair-app`) chama esse endpoint usando:
+
+- `AuthLambda__BaseUrl=<api_gateway_invoke_url>`
+- `AuthLambda__TokenPath=/auth/token`
+
+Se `enable_api_gateway = false`, este repositorio nao publica endpoint HTTP para a Lambda. Nesse caso, deve existir outro mecanismo documentado de invocacao; caso contrario, a integracao com `car-repair-app` nao estara completa.
 
 ## Integracao com os repositorios de infra
 
@@ -184,6 +200,19 @@ Exemplos:
 dotnet restore CarRepair.Auth.Lambda.sln
 dotnet build CarRepair.Auth.Lambda.sln
 dotnet test CarRepair.Auth.Lambda.sln
+```
+
+Package local usado pelo Terraform:
+
+```bash
+dotnet publish src/Lambda/CarRepair.Auth.Lambda.csproj \
+  --configuration Release \
+  --output artifacts/publish
+
+cd artifacts/publish
+zip -r ../lambda.zip .
+mkdir -p ../../terraform/artifacts
+cp ../lambda.zip ../../terraform/artifacts/lambda.zip
 ```
 
 ## Terraform
