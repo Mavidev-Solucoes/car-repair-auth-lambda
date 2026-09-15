@@ -18,6 +18,6 @@ jwt_audience              = "car-repair-shop"
 jwt_expiration_in_minutes = 60
 
 db_schema            = "public"
-customers_table_name = "customers"
+customers_table_name = "Users"
 
 enable_api_gateway = true

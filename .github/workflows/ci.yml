@@ -2,11 +2,9 @@ name: CI - Auth Lambda
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main, hml, prod]
   push:
-    branches:
-      - main
+    branches: [main, hml, prod]
   workflow_dispatch:
 
 permissions:

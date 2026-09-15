@@ -16,8 +16,8 @@ variable "environment" {
   default     = "dev"
 
   validation {
-    condition     = contains(["dev", "prod"], var.environment)
-    error_message = "Environment must be dev or prod."
+    condition     = contains(["dev", "hml", "prod"], var.environment)
+    error_message = "Environment must be dev, hml, or prod."
   }
 }
 
@@ -100,7 +100,7 @@ variable "db_schema" {
 variable "customers_table_name" {
   description = "Customers table name in PostgreSQL."
   type        = string
-  default     = "customers"
+  default     = "Users"
 }
 
 variable "enable_api_gateway" {
