@@ -1,0 +1,73 @@
+name: CI - Auth Lambda
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore CarRepair.Auth.Lambda.sln
+
+      - name: Build
+        run: |
+          dotnet build \
+            CarRepair.Auth.Lambda.sln \
+            --configuration Release \
+            --no-restore
+
+      - name: Test
+        run: |
+          dotnet test \
+            CarRepair.Auth.Lambda.sln \
+            --configuration Release \
+            --no-build
+
+      - name: Publish Lambda
+        run: |
+          dotnet publish \
+            src/Lambda/CarRepair.Auth.Lambda.csproj \
+            --configuration Release \
+            --output artifacts/publish
+
+  terraform:
+    name: Terraform Format and Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
