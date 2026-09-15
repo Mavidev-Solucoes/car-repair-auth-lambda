@@ -18,3 +18,5 @@ tfplan
 /lambda-terraform.txt
 /lambda-update-result.txt
 /environments/academy-dev/terraform.tfvars
+terraform/tfplan
+terraform/artifacts/
